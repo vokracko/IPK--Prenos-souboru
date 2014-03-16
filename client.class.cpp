@@ -62,9 +62,9 @@ void Client::establishConnection()
 bool Client::getFile()
 {
 	static char buffer[replyLength+1] = {0};
-	//todo kontrolovat jestli se povedlo
+
 	//todo odmazat append .out
-	std::ofstream file(connection.file.append(".out").c_str(), std::fstream::out | std::fstream::binary);
+	std::ofstream file;
 	long long size = 0, readSize = 0;
 	int res;
 	char * pos;
@@ -72,7 +72,11 @@ bool Client::getFile()
 	//jako první se posílá velikost souboru
 	//ale můžou tam být už data nebo chybová zpráva
 	memset(buffer, 0, replyLength);
-	res = recv(sck, buffer, replyLength, 0);
+	res = recv(sck, buffer, replyLength, MSG_NOSIGNAL);
+	if(res < 0)
+	{
+		throw ftpException(ftpException::RECV);
+	}
 
 	if(isdigit(buffer[0]))
 	{
@@ -90,10 +94,18 @@ bool Client::getFile()
 		throw ftpException(ftpException::EXISTS);
 	}
 
+	file.open(connection.file.append(".out").c_str(), std::fstream::out | std::fstream::binary);
+
 	do
 	{
 		memset(buffer, 0, replyLength);
-		res = recv(sck, buffer, replyLength, 0);
+		res = recv(sck, buffer, replyLength, MSG_NOSIGNAL);
+		if(res < 0)
+		{
+			file.close();
+			throw ftpException(ftpException::RECV);
+		}
+
 		readSize += res;
 		file.write(buffer, res);
 	}
@@ -110,6 +122,6 @@ void Client::operator << (std::stringstream & command)
 
 void Client::send(std::stringstream & command)
 {
-	::send(sck, command.str().c_str(), command.str().size() - 1, 0); // -1 konec řádku
+	::send(sck, command.str().c_str(), command.str().size() - 1, MSG_NOSIGNAL); // -1 konec řádku
 	command.str("");
 }

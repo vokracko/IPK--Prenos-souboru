@@ -20,7 +20,7 @@ struct Tconnection
 
 class Client
 {
-		static const int replyLength = 99;
+		static const int replyLength = 1024;
 
 		int sck;
 

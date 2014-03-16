@@ -1,11 +1,11 @@
 flags=--std=c++98
 
-all: client server
+all: clean client server
 
-client: clean
+client:
 	g++ $(flags) client.cpp client.class.cpp -o client
 
-server: clean
+server:
 	g++ $(flags) server.cpp server.class.cpp -o server -lpthread
 
 clean:

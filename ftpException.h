@@ -16,6 +16,7 @@ class ftpException: public std::exception
 		static const int BIND = 9;
 		static const int LISTEN = 10;
 		static const int EXISTS = 11;
+		static const int RECV = 12;
 
 		ftpException(int code)
 		{
@@ -38,6 +39,7 @@ class ftpException: public std::exception
 				"BIND",
 				"LISTEN",
 				"Soubor neexistuje",
+				"RECV",
 			};
 
 			return messages[code];

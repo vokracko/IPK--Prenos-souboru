@@ -1,23 +1,39 @@
 #include "server.class.h"
 
+const int Server::bufferSize = 1024;
+bool Server::work = true;
+int Server::sck;
+int Server::speed;
+
+void stop(int sig)
+{
+	Server::work = false;
+	shutdown(Server::sck, 2);
+	close(Server::sck);
+	std::cerr << "Čekám na ukončení všech aktivních spojení" << std::endl;
+}
+
 void * handleClient(void * con)
 {
 	int x = *(int*)con;
 	int res;
-	int sended = 100;
-	int tmpSize = 0;
+	int toSend = Server::bufferSize;
+	int sended = 0;
 	int size = 0;
-	char buffer[100] = {0};
+	time_t start, end, timeDiff;
+	char buffer[Server::bufferSize] = {0};
 	std::string filename;
 	std::stringstream msg;
 
 	//načtení jména souboru
 	do
 	{
-		memset(buffer, 0, 100);
-		recv(x, buffer, 99, 0);
+		memset(buffer, 0, Server::bufferSize);
+		res = recv(x, buffer, Server::bufferSize, MSG_NOSIGNAL);
+		if(res < 0) return NULL;
+
 		filename += buffer;
-	} while(res == 99);
+	} while(res == Server::bufferSize);
 
 	std::ifstream file(filename.c_str(), std::fstream::in | std::fstream::binary);
 
@@ -30,31 +46,60 @@ void * handleClient(void * con)
 		file.seekg(0, std::ifstream::beg);
 	}
 
-	send(x, msg.str().c_str(), msg.str().length(), 0);
+	res = send(x, msg.str().c_str(), msg.str().length(), MSG_NOSIGNAL);
+	if(res < 0) return NULL;
+
+	start = std::clock();
 
 	while(!file.eof() && file.good())
 	{
-		memset(buffer, 0, 100);
-		file.read(buffer, 100);
-		// std::cout << buffer << std::endl;
-		if(file.eof()) sended = size - tmpSize;
-		tmpSize += 100;
-		send(x, buffer, sended, 0);
+		memset(buffer, 0, Server::bufferSize);
+		file.read(buffer, Server::bufferSize);
+
+		if(file.eof()) toSend = size - sended;
+		sended += Server::bufferSize;
+		res = send(x, buffer, toSend, MSG_NOSIGNAL);
+		if(res < 0) return NULL;
+
+		timeDiff = std::clock() - start;
+		if(timeDiff < Server::clocktime())
+		{
+			usleep(((Server::clocktime() - timeDiff)*1000000)/CLOCKS_PER_SEC);
+		}
+
+		start = std::clock();
 	}
 
 	file.close();
+	close(x);
 }
 
 Server::Server()
 {
-	threadCount = 0;
+	#ifdef CTRL_C
+	signal(SIGINT, stop);
+	#endif
+}
+
+Server::~Server()
+{
+	pthread_t * thread_id;
+
+	while(!threads.empty())
+	{
+		thread_id = threads.top();
+		pthread_join(*thread_id, NULL);
+		delete thread_id;
+		threads.pop();
+	}
+
 }
 
 void Server::parseInput(char ** params)
 {
 	if(strcmp(params[1], "-d") == 0 && strcmp(params[3], "-p") == 0)
 	{
-		getNumber(params[2], &speed);
+		getNumber(params[2], &(Server::speed));
 		getNumber(params[4], &port);
 	}
 	else throw ftpException(ftpException::REGEX_MATCH);
@@ -72,8 +117,8 @@ void Server::getNumber(char * string, int * location)
 void Server::listen()
 {
 	int res;
-
-	sck = socket(PF_INET, SOCK_STREAM, 0);
+	pthread_t * thread_id;
+	Server::sck = socket(PF_INET, SOCK_STREAM, 0);
 	if(sck < 0) throw ftpException(ftpException::SOCKET);
 
 	address.sin_family = PF_INET;
@@ -81,21 +126,31 @@ void Server::listen()
 	address.sin_addr.s_addr  = INADDR_ANY;
 	unsigned int  len = sizeof(address);
 
-	res = bind(sck, (struct sockaddr *) &address, len);
+	res = bind(Server::sck, (struct sockaddr *) &address, len);
 	if(res < 0) throw ftpException(ftpException::BIND);
 
-	res = ::listen(sck, SOMAXCONN);
+	res = ::listen(Server::sck, SOMAXCONN);
 	if(res < 0) throw ftpException(ftpException::LISTEN);
 
-	while(true)
+	while(Server::work)
 	{
-		res = accept(sck, (struct sockaddr *) &address, &len);
+		res = accept(Server::sck, (struct sockaddr *) &address, &len);
+		if(Server::work == false) break; //8 EBADF zavřený file descriptor => ctrl+c
 		if(res < 0) throw ftpException(ftpException::ACCEPT);
 
-		pthread_create(&threads[threadCount++], NULL, handleClient, &res);
+		thread_id = thread();
+		pthread_create(thread_id, NULL, handleClient, &res);
 	}
+}
+
+pthread_t * Server::thread()
+{
+	pthread_t * thread_id = new pthread_t;
+	threads.push(thread_id);
+
+	return thread_id;
 }
 
 
 
-//TODO odchytávat ctrl+d, uzavřít socket
+
