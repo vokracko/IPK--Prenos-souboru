@@ -63,7 +63,6 @@ bool Client::getFile()
 {
 	static char buffer[replyLength+1] = {0};
 
-	//todo odmazat append .out
 	std::ofstream file;
 	long long size = 0, readSize = 0;
 	int res;
@@ -94,7 +93,7 @@ bool Client::getFile()
 		throw ftpException(ftpException::EXISTS);
 	}
 
-	file.open(connection.file.append(".out").c_str(), std::fstream::out | std::fstream::binary);
+	file.open(connection.file.c_str(), std::fstream::out | std::fstream::binary);
 
 	do
 	{

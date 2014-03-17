@@ -20,7 +20,7 @@ void * handleClient(void * con)
 	int toSend = Server::bufferSize;
 	int sended = 0;
 	int size = 0;
-	time_t start, end, timeDiff;
+	time_t start, sleepTime, timeDiff;
 	char buffer[Server::bufferSize] = {0};
 	std::string filename;
 	std::stringstream msg;
@@ -57,17 +57,19 @@ void * handleClient(void * con)
 		file.read(buffer, Server::bufferSize);
 
 		if(file.eof()) toSend = size - sended;
+
 		sended += Server::bufferSize;
+		start = std::clock();
 		res = send(x, buffer, toSend, MSG_NOSIGNAL);
+		timeDiff = std::clock() - start;
+
 		if(res < 0) return NULL;
 
-		timeDiff = std::clock() - start;
 		if(timeDiff < Server::clocktime())
 		{
-			usleep(((Server::clocktime() - timeDiff)*1000000)/CLOCKS_PER_SEC);
+			sleepTime = ((Server::clocktime() - timeDiff)*1000000)/CLOCKS_PER_SEC;
+			usleep(sleepTime);
 		}
-
-		start = std::clock();
 	}
 
 	file.close();
@@ -135,7 +137,7 @@ void Server::listen()
 	while(Server::work)
 	{
 		res = accept(Server::sck, (struct sockaddr *) &address, &len);
-		if(Server::work == false) break; //8 EBADF zavřený file descriptor => ctrl+c
+		if(Server::work == false) break;
 		if(res < 0) throw ftpException(ftpException::ACCEPT);
 
 		thread_id = thread();

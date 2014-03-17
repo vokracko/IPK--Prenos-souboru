@@ -31,7 +31,8 @@ class Server
 
 		static time_t clocktime()
 		{
-			static const time_t kbsp = (1.0/speed)*CLOCKS_PER_SEC;
+			static time_t kbsp = ((1.0/speed)*CLOCKS_PER_SEC)/(1 + speed/10000.0); //magické upravení rychlosti
+
 			return kbsp;
 		}
 
