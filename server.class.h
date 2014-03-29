@@ -1,7 +1,7 @@
 #include <string>
 #include <cstring>
 #include <csignal>
-#include <ctime>
+#include <sys/time.h>
 #include <sstream>
 #include <fstream>
 #include <pthread.h>
@@ -29,11 +29,9 @@ class Server
 		static int sck;
 		static int speed;
 
-		static time_t clocktime()
+		static int duration()
 		{
-			static time_t kbsp = ((1.0/speed)*CLOCKS_PER_SEC)/(1 + speed/10000.0); //magické upravení rychlosti
-
-			return kbsp;
+			return (1000000/speed) - 50;
 		}
 
 		Server();

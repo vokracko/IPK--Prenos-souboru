@@ -25,5 +25,3 @@ int main(int argc, char *argv[])
 
 	return 0;
 }
-
-//TODO regulace rychlosti - nefunguje přesně pro vyšší hodnoty (je to pomalejší)

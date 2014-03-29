@@ -20,7 +20,8 @@ void * handleClient(void * con)
 	int toSend = Server::bufferSize;
 	int sended = 0;
 	int size = 0;
-	time_t start, sleepTime, timeDiff;
+	timeval start, end;
+	int sleepTime, timeDiff;
 	char buffer[Server::bufferSize] = {0};
 	std::string filename;
 	std::stringstream msg;
@@ -49,25 +50,23 @@ void * handleClient(void * con)
 	res = send(x, msg.str().c_str(), msg.str().length(), MSG_NOSIGNAL);
 	if(res < 0) return NULL;
 
-	start = std::clock();
-
 	while(!file.eof() && file.good())
 	{
+		gettimeofday(&start, NULL);
 		memset(buffer, 0, Server::bufferSize);
 		file.read(buffer, Server::bufferSize);
 
 		if(file.eof()) toSend = size - sended;
 
 		sended += Server::bufferSize;
-		start = std::clock();
 		res = send(x, buffer, toSend, MSG_NOSIGNAL);
-		timeDiff = std::clock() - start;
-
+		gettimeofday(&end, NULL);
+		timeDiff = end.tv_sec * 1000000 + end.tv_usec - start.tv_sec * 1000000  - start.tv_usec;
 		if(res < 0) return NULL;
 
-		if(timeDiff < Server::clocktime())
+		if(timeDiff < Server::duration())
 		{
-			sleepTime = ((Server::clocktime() - timeDiff)*1000000)/CLOCKS_PER_SEC;
+			sleepTime = Server::duration() - timeDiff;
 			usleep(sleepTime);
 		}
 	}
